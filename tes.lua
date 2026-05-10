@@ -1,793 +1,575 @@
--- ============================================================
--- QUANTUM ONYX PROJECT GUI
--- Design mirrored from screenshot
--- Compatible with: LocalScript inside StarterPlayerScripts
--- ============================================================
+-- ╔══════════════════════════════════════════════════════════════╗
+-- ║                    MEDUSA HUB v2.0                          ║
+-- ║         Flat Dark · Responsive · Webhook Notifier           ║
+-- ╚══════════════════════════════════════════════════════════════╝
+-- LocalScript → StarterPlayerScripts
 
-local Players = game:GetService("Players")
+local Players      = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
+local UserInput    = game:GetService("UserInputService")
+local HttpService  = game:GetService("HttpService")
 
 local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
+local pGui   = player:WaitForChild("PlayerGui")
 
--- ============================================================
--- UTILITY FUNCTIONS
--- ============================================================
+-- ══════════════════════════════════════════════
+--  WEBHOOK (isi URL kamu di sini)
+-- ══════════════════════════════════════════════
+local WEBHOOK_URL = "https://discord.com/api/webhooks/YOUR_WEBHOOK_HERE"
 
-local function Create(class, props)
-	local obj = Instance.new(class)
-	for k, v in pairs(props) do
-		if k ~= "Parent" then
-			obj[k] = v
-		end
-	end
-	if props.Parent then
-		obj.Parent = props.Parent
-	end
-	return obj
-end
-
-local function MakeDraggable(frame, dragHandle)
-	local dragging = false
-	local dragInput, mousePos, framePos
-
-	dragHandle.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 then
-			dragging = true
-			mousePos = input.Position
-			framePos = frame.Position
-			input.Changed:Connect(function()
-				if input.UserInputState == Enum.UserInputState.End then
-					dragging = false
-				end
-			end)
-		end
-	end)
-
-	dragHandle.InputChanged:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseMovement then
-			dragInput = input
-		end
-	end)
-
-	UserInputService.InputChanged:Connect(function(input)
-		if input == dragInput and dragging then
-			local delta = input.Position - mousePos
-			frame.Position = UDim2.new(
-				framePos.X.Scale,
-				framePos.X.Offset + delta.X,
-				framePos.Y.Scale,
-				framePos.Y.Offset + delta.Y
-			)
-		end
-	end)
-end
-
--- ============================================================
--- COLORS
--- ============================================================
+-- ══════════════════════════════════════════════
+--  PALETTE  —  Flat Dark Purple
+-- ══════════════════════════════════════════════
 local C = {
-	BG          = Color3.fromRGB(18, 18, 24),
-	BG2         = Color3.fromRGB(24, 24, 32),
-	BG3         = Color3.fromRGB(30, 30, 40),
-	Panel       = Color3.fromRGB(22, 22, 30),
-	Border      = Color3.fromRGB(80, 50, 130),
-	Purple      = Color3.fromRGB(138, 79, 255),
-	PurpleLight = Color3.fromRGB(168, 110, 255),
-	PurpleDark  = Color3.fromRGB(90, 40, 180),
-	Green       = Color3.fromRGB(80, 220, 100),
-	White       = Color3.fromRGB(230, 230, 240),
-	Gray        = Color3.fromRGB(130, 130, 150),
-	DarkGray    = Color3.fromRGB(50, 50, 65),
-	Dropdown    = Color3.fromRGB(28, 22, 45),
-	SliderBG    = Color3.fromRGB(60, 40, 100),
-	ToggleOff   = Color3.fromRGB(70, 70, 85),
-	ToggleOn    = Color3.fromRGB(120, 60, 200),
+    BG0   = Color3.fromRGB( 11,  9,  18),  -- background utama
+    BG1   = Color3.fromRGB( 17, 14,  28),  -- header / sidebar
+    BG2   = Color3.fromRGB( 22, 18,  36),  -- card
+    BG3   = Color3.fromRGB( 30, 25,  48),  -- hover / input
+    PUR   = Color3.fromRGB(120, 55, 210),  -- aksen utama
+    PUR2  = Color3.fromRGB(155, 90, 255),  -- aksen terang
+    PUR3  = Color3.fromRGB( 70, 28, 140),  -- aksen gelap
+    LINE  = Color3.fromRGB( 44, 34,  70),  -- garis pemisah
+    WHITE = Color3.fromRGB(220,215,235),
+    GRAY  = Color3.fromRGB(105, 95,130),
+    GREEN = Color3.fromRGB( 72,200,110),
+    RED   = Color3.fromRGB(210, 65, 80),
 }
 
--- ============================================================
--- MAIN SCREEN GUI
--- ============================================================
-local ScreenGui = Create("ScreenGui", {
-	Name            = "QuantumOnyxGUI",
-	ResetOnSpawn    = false,
-	ZIndexBehavior  = Enum.ZIndexBehavior.Sibling,
-	Parent          = playerGui,
-})
-
--- ============================================================
--- MAIN FRAME (the big dark window)
--- ============================================================
-local MainFrame = Create("Frame", {
-	Name            = "MainFrame",
-	Size            = UDim2.new(0, 1000, 0, 620),
-	Position        = UDim2.new(0.5, -500, 0.5, -310),
-	BackgroundColor3 = C.BG,
-	BorderSizePixel = 0,
-	Parent          = ScreenGui,
-})
-Create("UICorner", { CornerRadius = UDim.new(0, 12), Parent = MainFrame })
-Create("UIStroke", { Color = C.Border, Thickness = 1.5, Parent = MainFrame })
-
--- ============================================================
--- TOP BAR
--- ============================================================
-local TopBar = Create("Frame", {
-	Name            = "TopBar",
-	Size            = UDim2.new(1, 0, 0, 80),
-	Position        = UDim2.new(0, 0, 0, 0),
-	BackgroundColor3 = C.BG2,
-	BorderSizePixel = 0,
-	Parent          = MainFrame,
-})
-Create("UICorner", { CornerRadius = UDim.new(0, 12), Parent = TopBar })
-
--- Purple accent line under top bar
-Create("Frame", {
-	Size            = UDim2.new(1, 0, 0, 1),
-	Position        = UDim2.new(0, 0, 1, -1),
-	BackgroundColor3 = C.Border,
-	BorderSizePixel = 0,
-	Parent          = TopBar,
-})
-
-MakeDraggable(MainFrame, TopBar)
-
--- Title
-Create("TextLabel", {
-	Name            = "Title",
-	Text            = "Quantum Onyx Project",
-	Font            = Enum.Font.GothamBold,
-	TextSize        = 20,
-	TextColor3      = C.White,
-	TextXAlignment  = Enum.TextXAlignment.Left,
-	BackgroundTransparency = 1,
-	Size            = UDim2.new(0, 280, 0, 28),
-	Position        = UDim2.new(0, 20, 0, 12),
-	Parent          = TopBar,
-})
-
--- Subtitle: "Blox Fruit · v.Freemium · Sunday"
-local SubTitle = Create("TextLabel", {
-	Name            = "SubTitle",
-	Text            = "",
-	Font            = Enum.Font.Gotham,
-	TextSize        = 13,
-	TextColor3      = C.Gray,
-	TextXAlignment  = Enum.TextXAlignment.Left,
-	BackgroundTransparency = 1,
-	Size            = UDim2.new(0, 340, 0, 18),
-	Position        = UDim2.new(0, 20, 0, 42),
-	Parent          = TopBar,
-	RichText        = true,
-})
-SubTitle.Text = '<font color="rgb(180,180,200)">Blox Fruit</font><font color="rgb(100,100,120)"> · v.Freemium · </font><font color="rgb(80,220,100)">Sunday</font>'
-
--- Settings Button
-local function MakeTopButton(text, posX, icon)
-	local btn = Create("TextButton", {
-		Text            = (icon and (icon .. "  ") or "") .. text,
-		Font            = Enum.Font.GothamSemibold,
-		TextSize        = 14,
-		TextColor3      = C.White,
-		BackgroundColor3 = C.BG3,
-		Size            = UDim2.new(0, 130, 0, 38),
-		Position        = UDim2.new(0, posX, 0, 20),
-		BorderSizePixel = 0,
-		Parent          = TopBar,
-	})
-	Create("UICorner", { CornerRadius = UDim.new(0, 8), Parent = btn })
-	Create("UIStroke", { Color = C.Border, Thickness = 1, Parent = btn })
-	return btn
+-- ══════════════════════════════════════════════
+--  HELPERS
+-- ══════════════════════════════════════════════
+local function New(cls, props)
+    local o = Instance.new(cls)
+    for k,v in pairs(props) do
+        if k ~= "Parent" then o[k] = v end
+    end
+    if props.Parent then o.Parent = props.Parent end
+    return o
+end
+local function Corner(r,p)  New("UICorner",{CornerRadius=UDim.new(0,r),Parent=p}) end
+local function Stroke(c,t,p) New("UIStroke",{Color=c,Thickness=t,Parent=p}) end
+local function Pad(l,r,t,b,p)
+    New("UIPadding",{
+        PaddingLeft=UDim.new(0,l),PaddingRight=UDim.new(0,r),
+        PaddingTop=UDim.new(0,t),PaddingBottom=UDim.new(0,b),Parent=p
+    })
+end
+local function Tw(o,d,props)
+    TweenService:Create(o,TweenInfo.new(d,Enum.EasingStyle.Quart),props):Play()
 end
 
-MakeTopButton("Settings", 580, "⚙")
-MakeTopButton("Credits", 722, "👤")
+-- Draggable (offset-based, aman untuk scale layout)
+local function Draggable(frame, handle)
+    local drag, mStart, fStart = false, nil, nil
+    handle.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1
+        or i.UserInputType == Enum.UserInputType.Touch then
+            drag   = true
+            mStart = i.Position
+            fStart = frame.Position
+            i.Changed:Connect(function()
+                if i.UserInputState == Enum.UserInputState.End then drag = false end
+            end)
+        end
+    end)
+    UserInput.InputChanged:Connect(function(i)
+        if not drag then return end
+        if i.UserInputType == Enum.UserInputType.MouseMovement
+        or i.UserInputType == Enum.UserInputType.Touch then
+            local d = i.Position - mStart
+            frame.Position = UDim2.new(
+                fStart.X.Scale, fStart.X.Offset + d.X,
+                fStart.Y.Scale, fStart.Y.Offset + d.Y
+            )
+        end
+    end)
+end
 
--- Minimize & Close buttons
-local MinBtn = Create("TextButton", {
-	Text            = "⛶",
-	Font            = Enum.Font.GothamBold,
-	TextSize        = 18,
-	TextColor3      = C.White,
-	BackgroundColor3 = C.BG3,
-	Size            = UDim2.new(0, 38, 0, 38),
-	Position        = UDim2.new(0, 868, 0, 20),
-	BorderSizePixel = 0,
-	Parent          = TopBar,
+-- ══════════════════════════════════════════════
+--  SEND WEBHOOK
+-- ══════════════════════════════════════════════
+local function SendWebhook(label, on)
+    pcall(function()
+        -- Placeholder: logika Job ID akan ditambahkan di sini
+        -- local jobId = game.JobId
+        HttpService:PostAsync(WEBHOOK_URL, HttpService:JSONEncode({
+            username = "🐍 Medusa Hub",
+            embeds = {{
+                title       = label .. (on and "  ✅ ACTIVATED" or "  ❌ DEACTIVATED"),
+                description = "**Player:** `"..player.Name.."`\n**Job ID:** `[akan ditambahkan]`",
+                color       = on and 0x7B37D2 or 0x3D1A6E,
+                footer      = { text = "Medusa Hub • "..os.date("%H:%M:%S") },
+            }}
+        }), Enum.HttpContentType.ApplicationJson, false)
+    end)
+end
+
+-- ══════════════════════════════════════════════
+--  SCREEN GUI
+-- ══════════════════════════════════════════════
+local SG = New("ScreenGui",{
+    Name           = "MedusaHub",
+    ResetOnSpawn   = false,
+    ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+    IgnoreGuiInset = true,
+    Parent         = pGui,
 })
-Create("UICorner", { CornerRadius = UDim.new(0, 8), Parent = MinBtn })
-Create("UIStroke", { Color = C.Border, Thickness = 1, Parent = MinBtn })
 
-local CloseBtn = Create("TextButton", {
-	Text            = "✕",
-	Font            = Enum.Font.GothamBold,
-	TextSize        = 18,
-	TextColor3      = C.White,
-	BackgroundColor3 = C.BG3,
-	Size            = UDim2.new(0, 38, 0, 38),
-	Position        = UDim2.new(0, 918, 0, 20),
-	BorderSizePixel = 0,
-	Parent          = TopBar,
+-- ══════════════════════════════════════════════
+--  MAIN WINDOW  —  scale-based responsive
+--  70% lebar layar, 75% tinggi layar, maks 600×540
+-- ══════════════════════════════════════════════
+local Win = New("Frame",{
+    Name             = "Window",
+    Size             = UDim2.new(0.70, 0, 0.75, 0),
+    SizeConstraint   = Enum.SizeConstraint.RelativeXY,
+    Position         = UDim2.new(0.15, 0, 0.125, 0),
+    BackgroundColor3 = C.BG0,
+    BorderSizePixel  = 0,
+    ClipsDescendants = true,
+    Parent           = SG,
 })
-Create("UICorner", { CornerRadius = UDim.new(0, 8), Parent = CloseBtn })
-Create("UIStroke", { Color = C.Border, Thickness = 1, Parent = CloseBtn })
+Corner(12, Win)
+Stroke(C.LINE, 1.5, Win)
 
-CloseBtn.MouseButton1Click:Connect(function()
-	local tween = TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quart), {
-		Size     = UDim2.new(0, 1000, 0, 0),
-		Position = UDim2.new(0.5, -500, 0.5, 0),
-	})
-	tween:Play()
-	tween.Completed:Connect(function()
-		ScreenGui:Destroy()
-	end)
+-- ── TITLE BAR ────────────────────────────────
+local TBar = New("Frame",{
+    Size             = UDim2.new(1,0,0,0),
+    -- tinggi title bar = 11% tinggi window
+    SizeConstraint   = Enum.SizeConstraint.RelativeXY,
+    BackgroundColor3 = C.BG1,
+    BorderSizePixel  = 0,
+    Parent           = Win,
+})
+-- Kita set tinggi title bar pakai AspectRatio trick → pakai offset tetap 48px
+TBar.Size = UDim2.new(1,0,0,48)
+-- bottom border
+local tLine = New("Frame",{
+    Size=UDim2.new(1,0,0,1),Position=UDim2.new(0,0,1,-1),
+    BackgroundColor3=C.PUR3, BorderSizePixel=0, Parent=TBar,
+})
+
+Draggable(Win, TBar)
+
+-- Icon + nama
+New("TextLabel",{
+    Text="🐍", TextSize=20, Font=Enum.Font.GothamBold,
+    TextColor3=C.PUR2, BackgroundTransparency=1,
+    Size=UDim2.new(0,28,1,0), Position=UDim2.new(0,12,0,0),
+    TextYAlignment=Enum.TextYAlignment.Center,
+    Parent=TBar,
+})
+New("TextLabel",{
+    Text="MEDUSA HUB",
+    Font=Enum.Font.GothamBold, TextSize=15,
+    TextColor3=C.PUR2, BackgroundTransparency=1,
+    Size=UDim2.new(0,150,0,26), Position=UDim2.new(0,44,0,11),
+    TextXAlignment=Enum.TextXAlignment.Left,
+    Parent=TBar,
+})
+New("TextLabel",{
+    Text="webhook notifier",
+    Font=Enum.Font.Gotham, TextSize=9,
+    TextColor3=C.GRAY, BackgroundTransparency=1,
+    Size=UDim2.new(0,120,0,12), Position=UDim2.new(0,44,0,30),
+    TextXAlignment=Enum.TextXAlignment.Left,
+    Parent=TBar,
+})
+
+-- Status badge
+local SBadge = New("Frame",{
+    Size=UDim2.new(0,72,0,20), Position=UDim2.new(0,200,0,14),
+    BackgroundColor3=Color3.fromRGB(14,34,18), BorderSizePixel=0, Parent=TBar,
+})
+Corner(10,SBadge) Stroke(C.GREEN,1,SBadge)
+New("TextLabel",{
+    Text="● ACTIVE", Font=Enum.Font.GothamBold, TextSize=10,
+    TextColor3=C.GREEN, BackgroundTransparency=1,
+    Size=UDim2.new(1,0,1,0), TextXAlignment=Enum.TextXAlignment.Center,
+    Parent=SBadge,
+})
+
+-- Window buttons (close / minimize)
+local function WinBtn(txt, posXOffset, hCol)
+    local b = New("TextButton",{
+        Text=txt, Font=Enum.Font.GothamBold, TextSize=13,
+        TextColor3=C.WHITE, BackgroundColor3=C.BG3,
+        Size=UDim2.new(0,26,0,26),
+        Position=UDim2.new(1,posXOffset,0,11),
+        BorderSizePixel=0, Parent=TBar,
+    })
+    Corner(6,b)
+    b.MouseEnter:Connect(function() Tw(b,.12,{BackgroundColor3=hCol}) end)
+    b.MouseLeave:Connect(function() Tw(b,.12,{BackgroundColor3=C.BG3}) end)
+    return b
+end
+local BClose = WinBtn("✕",-36, C.RED)
+local BMin   = WinBtn("–",-66, C.PUR3)
+
+local minimized = false
+BMin.MouseButton1Click:Connect(function()
+    minimized = not minimized
+    Tw(Win,.25, minimized
+        and {Size=UDim2.new(0.70,0,0,48)}
+        or  {Size=UDim2.new(0.70,0,0.75,0)}
+    )
+end)
+BClose.MouseButton1Click:Connect(function()
+    Tw(Win,.25,{Size=UDim2.new(0.70,0,0,0),
+                Position=UDim2.new(0.15,0,0.5,0)})
+    task.delay(.3, function() SG:Destroy() end)
 end)
 
--- ============================================================
--- NAV BAR (Home / Sub Farm / Sea Event / Player / ...)
--- ============================================================
-local NavBar = Create("Frame", {
-	Name            = "NavBar",
-	Size            = UDim2.new(1, 0, 0, 48),
-	Position        = UDim2.new(0, 0, 0, 80),
-	BackgroundColor3 = C.BG2,
-	BorderSizePixel = 0,
-	Parent          = MainFrame,
+-- ── TAB BAR ──────────────────────────────────
+local TabBar = New("Frame",{
+    Size=UDim2.new(1,-16,0,36),
+    Position=UDim2.new(0,8,0,52),
+    BackgroundColor3=C.BG1,
+    BorderSizePixel=0, Parent=Win,
+})
+Corner(8,TabBar)
+Stroke(C.LINE,1,TabBar)
+New("UIListLayout",{
+    FillDirection=Enum.FillDirection.Horizontal,
+    SortOrder=Enum.SortOrder.LayoutOrder,
+    VerticalAlignment=Enum.VerticalAlignment.Center,
+    Padding=UDim.new(0,2), Parent=TabBar,
+})
+Pad(4,4,3,3,TabBar)
+
+-- ── CONTENT AREA ─────────────────────────────
+local Content = New("Frame",{
+    Size=UDim2.new(1,-16,1,-140),
+    Position=UDim2.new(0,8,0,94),
+    BackgroundTransparency=1,
+    BorderSizePixel=0, Parent=Win,
 })
 
--- Bottom border line
-Create("Frame", {
-	Size            = UDim2.new(1, 0, 0, 1),
-	Position        = UDim2.new(0, 0, 1, -1),
-	BackgroundColor3 = C.Border,
-	BorderSizePixel = 0,
-	Parent          = NavBar,
+-- ── WEBHOOK BAR ──────────────────────────────
+local WBar = New("Frame",{
+    Size=UDim2.new(1,-16,0,32),
+    Position=UDim2.new(0,8,1,-76),
+    BackgroundColor3=C.BG1,
+    BorderSizePixel=0, Parent=Win,
+})
+Corner(8,WBar) Stroke(C.LINE,1,WBar)
+New("TextLabel",{
+    Text="🔗", TextSize=13, Font=Enum.Font.GothamBold,
+    TextColor3=C.PUR2, BackgroundTransparency=1,
+    Size=UDim2.new(0,22,1,0), Position=UDim2.new(0,8,0,0),
+    TextYAlignment=Enum.TextYAlignment.Center,
+    Parent=WBar,
+})
+local WInput = New("TextBox",{
+    Text="", PlaceholderText="Paste Discord Webhook URL…",
+    Font=Enum.Font.Gotham, TextSize=11,
+    TextColor3=C.WHITE, PlaceholderColor3=C.GRAY,
+    BackgroundTransparency=1, ClearTextOnFocus=false,
+    Size=UDim2.new(1,-90,1,0), Position=UDim2.new(0,34,0,0),
+    TextXAlignment=Enum.TextXAlignment.Left,
+    Parent=WBar,
+})
+WInput:GetPropertyChangedSignal("Text"):Connect(function()
+    WEBHOOK_URL = WInput.Text
+end)
+local SaveBtn = New("TextButton",{
+    Text="SAVE", Font=Enum.Font.GothamBold, TextSize=10,
+    TextColor3=C.WHITE, BackgroundColor3=C.PUR3,
+    Size=UDim2.new(0,46,0,22),
+    Position=UDim2.new(1,-52,0.5,-11),
+    BorderSizePixel=0, Parent=WBar,
+})
+Corner(6,SaveBtn)
+SaveBtn.MouseButton1Click:Connect(function()
+    SaveBtn.Text="✓" SaveBtn.BackgroundColor3=C.GREEN
+    task.delay(1.5,function()
+        SaveBtn.Text="SAVE"
+        Tw(SaveBtn,.3,{BackgroundColor3=C.PUR3})
+    end)
+end)
+
+-- footer
+New("TextLabel",{
+    Text="v2.0  ·  Medusa Hub  ·  logika Job ID akan ditambahkan",
+    Font=Enum.Font.Gotham, TextSize=9,
+    TextColor3=C.GRAY, BackgroundTransparency=1,
+    Size=UDim2.new(1,-16,0,20),
+    Position=UDim2.new(0,8,1,-38),
+    TextXAlignment=Enum.TextXAlignment.Center,
+    Parent=Win,
+})
+New("Frame",{
+    Size=UDim2.new(1,-16,0,1), Position=UDim2.new(0,8,1,-42),
+    BackgroundColor3=C.LINE, BorderSizePixel=0, Parent=Win,
 })
 
--- Search bar
-local SearchBox = Create("TextBox", {
-	PlaceholderText = "🔍  Search...",
-	Text            = "",
-	Font            = Enum.Font.Gotham,
-	TextSize        = 13,
-	TextColor3      = C.White,
-	PlaceholderColor3 = C.Gray,
-	BackgroundColor3 = C.BG3,
-	Size            = UDim2.new(0, 180, 0, 32),
-	Position        = UDim2.new(0, 12, 0, 8),
-	BorderSizePixel = 0,
-	ClearTextOnFocus = false,
-	TextXAlignment  = Enum.TextXAlignment.Left,
-	Parent          = NavBar,
-})
-Create("UICorner", { CornerRadius = UDim.new(0, 20), Parent = SearchBox })
-Create("UIStroke", { Color = C.Border, Thickness = 1, Parent = SearchBox })
-Create("UIPadding", {
-	PaddingLeft = UDim.new(0, 12),
-	Parent = SearchBox,
-})
-
--- Nav tabs
-local tabs = {
-	{ icon = "🏠", label = "Home",      active = true  },
-	{ icon = "⚔",  label = "Sub Farm",  active = false },
-	{ icon = "🚢", label = "Sea Event", active = false },
-	{ icon = "👤", label = "Player",    active = false },
-	{ icon = "🔮", label = "Devil",     active = false },
+-- ══════════════════════════════════════════════
+--  TAB DATA
+-- ══════════════════════════════════════════════
+local TABS = {
+    {
+        id="bloxfruits", label="Blox Fruits", icon="🍎",
+        items={
+            {id="fullmoon",    label="Full Moon",         desc="Notif saat event Full Moon aktif"},
+            {id="mirage",      label="Mirage Island",     desc="Notif saat Mirage Island muncul"},
+            {id="prehistoric", label="Prehistoric Island",desc="Notif saat Prehistoric Island spawn"},
+            {id="legsword",    label="Legendary Sword",   desc="Notif saat Legendary Sword spawn"},
+            {id="leghaki",     label="Legendary Haki",    desc="Notif saat Legendary Haki tersedia"},
+        }
+    },
+    {
+        id="kinglegacy", label="King Legacy", icon="👑",
+        items={
+            {id="bossSpawn",  label="Boss Spawned",   desc="Notif ketika Boss muncul di map"},
+            {id="raidStart",  label="Raid Started",   desc="Notif ketika Raid dimulai"},
+            {id="chestSpawn", label="Chest Spawned",  desc="Notif ketika Rare Chest muncul"},
+        }
+    },
+    {
+        id="fisch", label="Fisch", icon="🎣",
+        items={
+            {id="fischEvt",   label="Event Tracker",  desc="Pantau event aktif di Fisch"},
+            {id="rareFish",   label="Rare Fish Alert", desc="Notif saat ikan langka muncul"},
+            {id="storm",      label="Storm Warning",   desc="Notif ketika badai mendekat"},
+        }
+    },
+    {
+        id="settings", label="Settings", icon="⚙",
+        items={
+            {id="pingJoin",  label="Ping on Join",  desc="Kirim webhook saat masuk server"},
+            {id="pingDeath", label="Ping on Death", desc="Kirim webhook saat karakter mati"},
+            {id="silent",    label="Silent Mode",   desc="Matikan semua notifikasi webhook"},
+        }
+    },
 }
 
-local tabXStart = 210
-for i, tab in ipairs(tabs) do
-	local tabWidth = 110
-	local btn = Create("TextButton", {
-		Text            = tab.icon .. "  " .. tab.label,
-		Font            = Enum.Font.GothamSemibold,
-		TextSize        = 13,
-		TextColor3      = tab.active and C.White or C.Gray,
-		BackgroundTransparency = 1,
-		Size            = UDim2.new(0, tabWidth, 0, 48),
-		Position        = UDim2.new(0, tabXStart + (i-1)*tabWidth, 0, 0),
-		BorderSizePixel = 0,
-		Parent          = NavBar,
-	})
+-- ══════════════════════════════════════════════
+--  TOGGLE SYSTEM  (mutual exclusive)
+-- ══════════════════════════════════════════════
+local activeSetFn = nil  -- referensi ke setFn yang sedang ON
 
-	if tab.active then
-		-- Active underline
-		Create("Frame", {
-			Size            = UDim2.new(0.7, 0, 0, 3),
-			Position        = UDim2.new(0.15, 0, 1, -3),
-			BackgroundColor3 = C.Purple,
-			BorderSizePixel = 0,
-			Parent          = btn,
-		})
-	end
+local function MakeToggleRow(parent, item)
+    local row = New("Frame",{
+        Size=UDim2.new(1,0,0,52),
+        BackgroundColor3=C.BG2,
+        BorderSizePixel=0,
+        LayoutOrder=1, Parent=parent,
+    })
+    Corner(8,row)
+    Stroke(C.LINE,1,row)
+
+    -- left bar
+    local bar = New("Frame",{
+        Size=UDim2.new(0,3,0.55,0),
+        Position=UDim2.new(0,0,0.225,0),
+        BackgroundColor3=C.PUR3,
+        BorderSizePixel=0, Parent=row,
+    })
+    Corner(2,bar)
+
+    -- label
+    New("TextLabel",{
+        Text=item.label, Font=Enum.Font.GothamBold, TextSize=13,
+        TextColor3=C.WHITE, BackgroundTransparency=1,
+        Size=UDim2.new(0.58,0,0,22),
+        Position=UDim2.new(0,12,0,8),
+        TextXAlignment=Enum.TextXAlignment.Left,
+        Parent=row,
+    })
+    New("TextLabel",{
+        Text=item.desc, Font=Enum.Font.Gotham, TextSize=10,
+        TextColor3=C.GRAY, BackgroundTransparency=1,
+        Size=UDim2.new(0.58,0,0,16),
+        Position=UDim2.new(0,12,0,30),
+        TextXAlignment=Enum.TextXAlignment.Left,
+        Parent=row,
+    })
+
+    -- status chip
+    local chip = New("Frame",{
+        Size=UDim2.new(0,52,0,20),
+        Position=UDim2.new(1,-116,0.5,-10),
+        BackgroundColor3=C.BG3,
+        BorderSizePixel=0, Parent=row,
+    })
+    Corner(10,chip)
+    local chipTxt = New("TextLabel",{
+        Text="OFF", Font=Enum.Font.GothamBold, TextSize=10,
+        TextColor3=C.GRAY, BackgroundTransparency=1,
+        Size=UDim2.new(1,0,1,0),
+        TextXAlignment=Enum.TextXAlignment.Center,
+        Parent=chip,
+    })
+
+    -- toggle pill
+    local pill = New("Frame",{
+        Size=UDim2.new(0,50,0,26),
+        Position=UDim2.new(1,-60,0.5,-13),
+        BackgroundColor3=C.BG3,
+        BorderSizePixel=0, Parent=row,
+    })
+    Corner(13,pill) Stroke(C.LINE,1,pill)
+    local knob = New("Frame",{
+        Size=UDim2.new(0,20,0,20),
+        Position=UDim2.new(0,3,0,3),
+        BackgroundColor3=C.GRAY,
+        BorderSizePixel=0, Parent=pill,
+    })
+    Corner(10,knob)
+
+    local isOn = false
+
+    local function setFn(on, silent)
+        isOn = on
+        if on then
+            Tw(pill,  .22, {BackgroundColor3=C.PUR})
+            Tw(knob,  .22, {Position=UDim2.new(0,27,0,3), BackgroundColor3=C.PUR2})
+            Tw(bar,   .22, {BackgroundColor3=C.PUR2})
+            Tw(row,   .22, {BackgroundColor3=Color3.fromRGB(25,16,44)})
+            chipTxt.Text       = "ON"
+            chipTxt.TextColor3 = C.PUR2
+            chip.BackgroundColor3 = Color3.fromRGB(36,18,64)
+            if not silent then task.spawn(SendWebhook, item.label, true) end
+        else
+            Tw(pill,  .22, {BackgroundColor3=C.BG3})
+            Tw(knob,  .22, {Position=UDim2.new(0,3,0,3), BackgroundColor3=C.GRAY})
+            Tw(bar,   .22, {BackgroundColor3=C.PUR3})
+            Tw(row,   .22, {BackgroundColor3=C.BG2})
+            chipTxt.Text       = "OFF"
+            chipTxt.TextColor3 = C.GRAY
+            chip.BackgroundColor3 = C.BG3
+            if not silent then task.spawn(SendWebhook, item.label, false) end
+        end
+    end
+
+    -- clickable overlay
+    local btn = New("TextButton",{
+        Text="", BackgroundTransparency=1,
+        Size=UDim2.new(1,0,1,0), Parent=row,
+    })
+    btn.MouseButton1Click:Connect(function()
+        if isOn then
+            setFn(false)
+            activeSetFn = nil
+        else
+            -- matikan yang sebelumnya aktif
+            if activeSetFn and activeSetFn ~= setFn then
+                activeSetFn(false)
+            end
+            setFn(true)
+            activeSetFn = setFn
+        end
+    end)
+    btn.MouseEnter:Connect(function()
+        if not isOn then Tw(row,.12,{BackgroundColor3=C.BG3}) end
+    end)
+    btn.MouseLeave:Connect(function()
+        if not isOn then Tw(row,.12,{BackgroundColor3=C.BG2}) end
+    end)
 end
 
--- ============================================================
--- CONTENT AREA
--- ============================================================
-local ContentArea = Create("Frame", {
-	Name            = "ContentArea",
-	Size            = UDim2.new(1, 0, 1, -128),
-	Position        = UDim2.new(0, 0, 0, 128),
-	BackgroundTransparency = 1,
-	BorderSizePixel = 0,
-	Parent          = MainFrame,
-})
+-- ══════════════════════════════════════════════
+--  BUILD TABS
+-- ══════════════════════════════════════════════
+local pages    = {}
+local tabBtns  = {}
+local curTab   = nil
 
--- ============================================================
--- HELPER: Section Panel Header (gradient bar + title)
--- ============================================================
-local function MakeSectionHeader(parent, title, posY)
-	local header = Create("Frame", {
-		Size            = UDim2.new(1, -20, 0, 36),
-		Position        = UDim2.new(0, 10, 0, posY),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		Parent          = parent,
-	})
-
-	-- Left gradient pill
-	local leftPill = Create("Frame", {
-		Size            = UDim2.new(0, 80, 0, 8),
-		Position        = UDim2.new(0, 0, 0.5, -4),
-		BackgroundColor3 = C.Purple,
-		BorderSizePixel = 0,
-		Parent          = header,
-	})
-	Create("UICorner", { CornerRadius = UDim.new(1, 0), Parent = leftPill })
-	Create("UIGradient", {
-		Color = ColorSequence.new({
-			ColorSequenceKeypoint.new(0, C.PurpleLight),
-			ColorSequenceKeypoint.new(1, C.BG),
-		}),
-		Rotation = 0,
-		Parent = leftPill,
-	})
-
-	-- Title
-	Create("TextLabel", {
-		Text            = title,
-		Font            = Enum.Font.GothamBold,
-		TextSize        = 16,
-		TextColor3      = C.White,
-		BackgroundTransparency = 1,
-		Size            = UDim2.new(0, 200, 1, 0),
-		Position        = UDim2.new(0.5, -100, 0, 0),
-		TextXAlignment  = Enum.TextXAlignment.Center,
-		Parent          = header,
-	})
-
-	-- Right gradient pill
-	local rightPill = Create("Frame", {
-		Size            = UDim2.new(0, 80, 0, 8),
-		Position        = UDim2.new(1, -80, 0.5, -4),
-		BackgroundColor3 = C.Purple,
-		BorderSizePixel = 0,
-		Parent          = header,
-	})
-	Create("UICorner", { CornerRadius = UDim.new(1, 0), Parent = rightPill })
-	Create("UIGradient", {
-		Color = ColorSequence.new({
-			ColorSequenceKeypoint.new(0, C.BG),
-			ColorSequenceKeypoint.new(1, C.PurpleLight),
-		}),
-		Rotation = 0,
-		Parent = rightPill,
-	})
-
-	return header
+local function switchTab(id)
+    if curTab == id then return end
+    curTab = id
+    for tid, pg  in pairs(pages)   do pg.Visible  = (tid==id) end
+    for tid, tb  in pairs(tabBtns) do
+        local a = (tid==id)
+        Tw(tb.bg,.18, {BackgroundColor3 = a and C.PUR3 or C.BG0,
+                       BackgroundTransparency = a and 0 or 1})
+        tb.lbl.TextColor3 = a and C.WHITE or C.GRAY
+        tb.lbl.Font = a and Enum.Font.GothamBold or Enum.Font.Gotham
+    end
 end
 
--- ============================================================
--- HELPER: Row with label (left border)
--- ============================================================
-local function MakeRow(parent, posY, height)
-	height = height or 60
-	local row = Create("Frame", {
-		Size            = UDim2.new(1, -20, 0, height),
-		Position        = UDim2.new(0, 10, 0, posY),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		Parent          = parent,
-	})
+for _, tab in ipairs(TABS) do
+    -- tab button
+    local tbFrame = New("Frame",{
+        Size=UDim2.new(0,0,1,0), AutomaticSize=Enum.AutomaticSize.X,
+        BackgroundTransparency=1, BorderSizePixel=0,
+        LayoutOrder=1, Parent=TabBar,
+    })
+    local tbBg = New("Frame",{
+        Size=UDim2.new(1,0,1,0), BackgroundColor3=C.BG0,
+        BackgroundTransparency=1, BorderSizePixel=0, Parent=tbFrame,
+    })
+    Corner(6,tbBg)
+    local tbLbl = New("TextLabel",{
+        Text=tab.icon.."  "..tab.label,
+        Font=Enum.Font.Gotham, TextSize=12,
+        TextColor3=C.GRAY, BackgroundTransparency=1,
+        Size=UDim2.new(0,0,1,0), AutomaticSize=Enum.AutomaticSize.X,
+        TextXAlignment=Enum.TextXAlignment.Center, Parent=tbFrame,
+    })
+    Pad(10,10,0,0,tbLbl)
+    local tbBtn = New("TextButton",{
+        Text="", BackgroundTransparency=1,
+        Size=UDim2.new(1,0,1,0), Parent=tbFrame,
+    })
+    tabBtns[tab.id] = {bg=tbBg, lbl=tbLbl}
+    tbBtn.MouseButton1Click:Connect(function() switchTab(tab.id) end)
 
-	-- Left purple border
-	Create("Frame", {
-		Size            = UDim2.new(0, 3, 0.7, 0),
-		Position        = UDim2.new(0, 0, 0.15, 0),
-		BackgroundColor3 = C.Purple,
-		BorderSizePixel = 0,
-		Parent          = row,
-	})
+    -- scroll page
+    local page = New("ScrollingFrame",{
+        Size=UDim2.new(1,0,1,0),
+        BackgroundTransparency=1, BorderSizePixel=0,
+        ScrollBarThickness=3, ScrollBarImageColor3=C.PUR3,
+        CanvasSize=UDim2.new(0,0,0,0),
+        AutomaticCanvasSize=Enum.AutomaticSize.Y,
+        Visible=false, Parent=Content,
+    })
+    New("UIListLayout",{
+        SortOrder=Enum.SortOrder.LayoutOrder,
+        Padding=UDim.new(0,6), Parent=page,
+    })
+    Pad(0,6,2,4,page)
+    pages[tab.id] = page
 
-	return row
+    -- section header
+    local secHdr = New("Frame",{
+        Size=UDim2.new(1,-6,0,24),
+        BackgroundTransparency=1, BorderSizePixel=0,
+        LayoutOrder=0, Parent=page,
+    })
+    New("TextLabel",{
+        Text=tab.label:upper().." — EVENTS",
+        Font=Enum.Font.GothamBold, TextSize=9,
+        TextColor3=C.PUR2, BackgroundTransparency=1,
+        Size=UDim2.new(0,0,1,0), AutomaticSize=Enum.AutomaticSize.X,
+        TextXAlignment=Enum.TextXAlignment.Left,
+        Parent=secHdr,
+    })
+    -- line
+    local sl = New("Frame",{
+        Size=UDim2.new(1,0,0,1), Position=UDim2.new(0,0,1,-1),
+        BackgroundColor3=C.LINE, BorderSizePixel=0, Parent=secHdr,
+    })
+
+    for _, item in ipairs(tab.items) do
+        MakeToggleRow(page, item)
+    end
 end
 
--- ============================================================
--- HELPER: Dropdown button
--- ============================================================
-local function MakeDropdown(parent, value, posX, posY, width)
-	width = width or 120
-	local btn = Create("TextButton", {
-		Text            = value,
-		Font            = Enum.Font.GothamSemibold,
-		TextSize        = 13,
-		TextColor3      = C.PurpleLight,
-		BackgroundColor3 = C.Dropdown,
-		Size            = UDim2.new(0, width, 0, 34),
-		Position        = UDim2.new(0, posX, 0, posY),
-		BorderSizePixel = 0,
-		Parent          = parent,
-	})
-	Create("UICorner", { CornerRadius = UDim.new(0, 8), Parent = btn })
-	Create("UIStroke", { Color = C.Border, Thickness = 1, Parent = btn })
+-- aktifkan tab pertama
+switchTab(TABS[1].id)
 
-	-- Chevron
-	Create("TextLabel", {
-		Text            = "»",
-		Font            = Enum.Font.GothamBold,
-		TextSize        = 16,
-		TextColor3      = C.PurpleLight,
-		BackgroundTransparency = 1,
-		Size            = UDim2.new(0, 24, 0, 34),
-		Position        = UDim2.new(1, 2, 0, 0),
-		Parent          = parent,
-	})
+-- ══════════════════════════════════════════════
+--  ENTRANCE ANIMATION
+-- ══════════════════════════════════════════════
+Win.Size               = UDim2.new(0.70,0,0,0)
+Win.Position           = UDim2.new(0.15,0,0.5,0)
+Win.BackgroundTransparency = 1
 
-	return btn
-end
-
--- ============================================================
--- HELPER: Toggle
--- ============================================================
-local function MakeToggle(parent, posX, posY, defaultOn)
-	defaultOn = defaultOn or false
-
-	local togFrame = Create("Frame", {
-		Size            = UDim2.new(0, 54, 0, 28),
-		Position        = UDim2.new(0, posX, 0, posY),
-		BackgroundColor3 = defaultOn and C.ToggleOn or C.ToggleOff,
-		BorderSizePixel = 0,
-		Parent          = parent,
-	})
-	Create("UICorner", { CornerRadius = UDim.new(1, 0), Parent = togFrame })
-
-	local knob = Create("Frame", {
-		Size            = UDim2.new(0, 22, 0, 22),
-		Position        = defaultOn
-			and UDim2.new(0, 29, 0, 3)
-			or  UDim2.new(0, 3, 0, 3),
-		BackgroundColor3 = C.White,
-		BorderSizePixel = 0,
-		Parent          = togFrame,
-	})
-	Create("UICorner", { CornerRadius = UDim.new(1, 0), Parent = knob })
-
-	local togButton = Create("TextButton", {
-		Text            = "",
-		BackgroundTransparency = 1,
-		Size            = UDim2.new(1, 0, 1, 0),
-		Parent          = togFrame,
-	})
-
-	local isOn = defaultOn
-	togButton.MouseButton1Click:Connect(function()
-		isOn = not isOn
-		TweenService:Create(togFrame, TweenInfo.new(0.2), {
-			BackgroundColor3 = isOn and C.ToggleOn or C.ToggleOff,
-		}):Play()
-		TweenService:Create(knob, TweenInfo.new(0.2), {
-			Position = isOn and UDim2.new(0, 29, 0, 3) or UDim2.new(0, 3, 0, 3),
-		}):Play()
-	end)
-
-	return togFrame
-end
-
--- ============================================================
--- HELPER: Slider
--- ============================================================
-local function MakeSlider(parent, posX, posY, width, value, minVal, maxVal)
-	local sliderFrame = Create("Frame", {
-		Size            = UDim2.new(0, width, 0, 16),
-		Position        = UDim2.new(0, posX, 0, posY),
-		BackgroundColor3 = C.SliderBG,
-		BorderSizePixel = 0,
-		Parent          = parent,
-	})
-	Create("UICorner", { CornerRadius = UDim.new(1, 0), Parent = sliderFrame })
-
-	local fill = Create("Frame", {
-		Size            = UDim2.new((value - minVal) / (maxVal - minVal), 0, 1, 0),
-		BackgroundColor3 = C.Purple,
-		BorderSizePixel = 0,
-		Parent          = sliderFrame,
-	})
-	Create("UICorner", { CornerRadius = UDim.new(1, 0), Parent = fill })
-	Create("UIGradient", {
-		Color = ColorSequence.new({
-			ColorSequenceKeypoint.new(0, C.PurpleLight),
-			ColorSequenceKeypoint.new(1, C.Purple),
-		}),
-		Parent = fill,
-	})
-
-	local knob = Create("Frame", {
-		Size            = UDim2.new(0, 20, 0, 20),
-		Position        = UDim2.new((value - minVal) / (maxVal - minVal), -10, 0.5, -10),
-		BackgroundColor3 = C.White,
-		BorderSizePixel = 0,
-		Parent          = sliderFrame,
-	})
-	Create("UICorner", { CornerRadius = UDim.new(1, 0), Parent = knob })
-	Create("UIStroke", { Color = C.Purple, Thickness = 2, Parent = knob })
-
-	return sliderFrame
-end
-
--- ============================================================
--- LEFT PANEL: Main Farm
--- ============================================================
-local LeftPanel = Create("Frame", {
-	Name            = "LeftPanel",
-	Size            = UDim2.new(0, 470, 1, -10),
-	Position        = UDim2.new(0, 10, 0, 5),
-	BackgroundColor3 = C.Panel,
-	BorderSizePixel = 0,
-	Parent          = ContentArea,
-})
-Create("UICorner", { CornerRadius = UDim.new(0, 10), Parent = LeftPanel })
-Create("UIStroke", { Color = C.Border, Thickness = 1, Parent = LeftPanel })
-
--- Section header: Main Farm
-MakeSectionHeader(LeftPanel, "Main Farm", 8)
-
--- ---- Debug Functions row
-local r1 = MakeRow(LeftPanel, 55, 65)
-Create("TextLabel", {
-	Text            = "Debug Functions",
-	Font            = Enum.Font.GothamBold,
-	TextSize        = 14,
-	TextColor3      = C.White,
-	BackgroundTransparency = 1,
-	Size            = UDim2.new(0, 220, 0, 24),
-	Position        = UDim2.new(0, 14, 0, 8),
-	Parent          = r1,
-})
-Create("TextLabel", {
-	Text            = "None",
-	Font            = Enum.Font.Gotham,
-	TextSize        = 13,
-	TextColor3      = C.Gray,
-	BackgroundTransparency = 1,
-	Size            = UDim2.new(0, 220, 0, 20),
-	Position        = UDim2.new(0, 14, 0, 34),
-	Parent          = r1,
-})
-
--- Separator line inside panel
-Create("Frame", {
-	Size            = UDim2.new(0.95, 0, 0, 1),
-	Position        = UDim2.new(0.025, 0, 0, 124),
-	BackgroundColor3 = C.DarkGray,
-	BorderSizePixel = 0,
-	Parent          = LeftPanel,
-})
-
--- ---- Weapon row
-local r2 = MakeRow(LeftPanel, 132, 56)
-Create("TextLabel", {
-	Text            = "Weapon",
-	Font            = Enum.Font.GothamBold,
-	TextSize        = 14,
-	TextColor3      = C.White,
-	BackgroundTransparency = 1,
-	Size            = UDim2.new(0, 160, 0, 56),
-	Position        = UDim2.new(0, 14, 0, 0),
-	TextYAlignment  = Enum.TextYAlignment.Center,
-	Parent          = r2,
-})
-MakeDropdown(r2, "Melee", 200, 11, 130)
-
-Create("Frame", {
-	Size            = UDim2.new(0.95, 0, 0, 1),
-	Position        = UDim2.new(0.025, 0, 0, 190),
-	BackgroundColor3 = C.DarkGray,
-	BorderSizePixel = 0,
-	Parent          = LeftPanel,
-})
-
--- ---- Farm Method row
-local r3 = MakeRow(LeftPanel, 196, 56)
-Create("TextLabel", {
-	Text            = "Farm Method",
-	Font            = Enum.Font.GothamBold,
-	TextSize        = 14,
-	TextColor3      = C.White,
-	BackgroundTransparency = 1,
-	Size            = UDim2.new(0, 160, 0, 56),
-	Position        = UDim2.new(0, 14, 0, 0),
-	TextYAlignment  = Enum.TextYAlignment.Center,
-	Parent          = r3,
-})
-MakeDropdown(r3, "Quest", 200, 11, 130)
-
-Create("Frame", {
-	Size            = UDim2.new(0.95, 0, 0, 1),
-	Position        = UDim2.new(0.025, 0, 0, 254),
-	BackgroundColor3 = C.DarkGray,
-	BorderSizePixel = 0,
-	Parent          = LeftPanel,
-})
-
--- ---- Nearest (Distance) row with slider
-local r4 = MakeRow(LeftPanel, 260, 72)
-Create("TextLabel", {
-	Text            = "Nearest (Distance)",
-	Font            = Enum.Font.GothamBold,
-	TextSize        = 14,
-	TextColor3      = C.White,
-	BackgroundTransparency = 1,
-	Size            = UDim2.new(0, 200, 0, 28),
-	Position        = UDim2.new(0, 14, 0, 6),
-	Parent          = r4,
-})
--- Value box
-local distBox = Create("TextBox", {
-	Text            = "1500",
-	Font            = Enum.Font.GothamBold,
-	TextSize        = 14,
-	TextColor3      = C.White,
-	BackgroundColor3 = C.Dropdown,
-	Size            = UDim2.new(0, 80, 0, 28),
-	Position        = UDim2.new(0, 310, 0, 6),
-	BorderSizePixel = 0,
-	TextXAlignment  = Enum.TextXAlignment.Center,
-	Parent          = r4,
-})
-Create("UICorner", { CornerRadius = UDim.new(0, 8), Parent = distBox })
-Create("UIStroke", { Color = C.Border, Thickness = 1, Parent = distBox })
--- Slider
-MakeSlider(r4, 14, 46, 415, 1500, 0, 5000)
-
-Create("Frame", {
-	Size            = UDim2.new(0.95, 0, 0, 1),
-	Position        = UDim2.new(0.025, 0, 0, 334),
-	BackgroundColor3 = C.DarkGray,
-	BorderSizePixel = 0,
-	Parent          = LeftPanel,
-})
-
--- ---- Auto Farm toggle
-local r5 = MakeRow(LeftPanel, 340, 54)
-Create("TextLabel", {
-	Text            = "Auto Farm",
-	Font            = Enum.Font.GothamBold,
-	TextSize        = 14,
-	TextColor3      = C.Gray,
-	BackgroundTransparency = 1,
-	Size            = UDim2.new(0, 200, 0, 54),
-	Position        = UDim2.new(0, 14, 0, 0),
-	TextYAlignment  = Enum.TextYAlignment.Center,
-	Parent          = r5,
-})
-MakeToggle(r5, 360, 13, false)
-
-Create("Frame", {
-	Size            = UDim2.new(0.95, 0, 0, 1),
-	Position        = UDim2.new(0.025, 0, 0, 396),
-	BackgroundColor3 = C.DarkGray,
-	BorderSizePixel = 0,
-	Parent          = LeftPanel,
-})
-
--- ---- Take Quest toggle
-local r6 = MakeRow(LeftPanel, 402, 54)
-Create("TextLabel", {
-	Text            = "Take Quest",
-	Font            = Enum.Font.GothamBold,
-	TextSize        = 14,
-	TextColor3      = C.Gray,
-	BackgroundTransparency = 1,
-	Size            = UDim2.new(0, 200, 0, 54),
-	Position        = UDim2.new(0, 14, 0, 0),
-	TextYAlignment  = Enum.TextYAlignment.Center,
-	Parent          = r6,
-})
-MakeToggle(r6, 360, 13, false)
-
--- ============================================================
--- RIGHT PANEL: Farm Settings
--- ============================================================
-local RightPanel = Create("Frame", {
-	Name            = "RightPanel",
-	Size            = UDim2.new(0, 490, 1, -10),
-	Position        = UDim2.new(0, 500, 0, 5),
-	BackgroundColor3 = C.Panel,
-	BorderSizePixel = 0,
-	Parent          = ContentArea,
-})
-Create("UICorner", { CornerRadius = UDim.new(0, 10), Parent = RightPanel })
-Create("UIStroke", { Color = C.Border, Thickness = 1, Parent = RightPanel })
-
--- Section header: Farm Settings
-MakeSectionHeader(RightPanel, "Farm Settings", 8)
-
--- List of farm settings rows
-local farmRows = {
-	{ label = "Select Skills",    value = "Blox Fruit" },
-	{ label = "Blox Fruit Skills", value = "Z" },
-	{ label = "Melee Skills",     value = "Z" },
-	{ label = "Sword Skills",     value = "Z" },
-	{ label = "Gun Skills",       value = "Z" },
-}
-
-local rowStartY = 52
-for i, info in ipairs(farmRows) do
-	local yPos = rowStartY + (i-1) * 62
-
-	local row = MakeRow(RightPanel, yPos, 56)
-	Create("TextLabel", {
-		Text            = info.label,
-		Font            = Enum.Font.GothamBold,
-		TextSize        = 14,
-		TextColor3      = C.White,
-		BackgroundTransparency = 1,
-		Size            = UDim2.new(0, 200, 0, 56),
-		Position        = UDim2.new(0, 14, 0, 0),
-		TextYAlignment  = Enum.TextYAlignment.Center,
-		Parent          = row,
-	})
-
-	local dropW = info.value == "Blox Fruit" and 140 or 120
-	MakeDropdown(row, info.value, 230, 11, dropW)
-
-	if i < #farmRows then
-		Create("Frame", {
-			Size            = UDim2.new(0.95, 0, 0, 1),
-			Position        = UDim2.new(0.025, 0, 0, rowStartY + i*62 - 2),
-			BackgroundColor3 = C.DarkGray,
-			BorderSizePixel = 0,
-			Parent          = RightPanel,
-		})
-	end
-end
-
--- ---- Auto Use Skills toggle
-Create("Frame", {
-	Size            = UDim2.new(0.95, 0, 0, 1),
-	Position        = UDim2.new(0.025, 0, 0, 364),
-	BackgroundColor3 = C.DarkGray,
-	BorderSizePixel = 0,
-	Parent          = RightPanel,
-})
-
-local rSkills = MakeRow(RightPanel, 370, 54)
-Create("TextLabel", {
-	Text            = "Auto Use Skills",
-	Font            = Enum.Font.GothamBold,
-	TextSize        = 14,
-	TextColor3      = C.Gray,
-	BackgroundTransparency = 1,
-	Size            = UDim2.new(0, 200, 0, 54),
-	Position        = UDim2.new(0, 14, 0, 0),
-	TextYAlignment  = Enum.TextYAlignment.Center,
-	Parent          = rSkills,
-})
-MakeToggle(rSkills, 370, 13, false)
-
--- ============================================================
--- ENTRANCE ANIMATION
--- ============================================================
-MainFrame.Size     = UDim2.new(0, 0, 0, 0)
-MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-
-TweenService:Create(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-	Size     = UDim2.new(0, 1000, 0, 620),
-	Position = UDim2.new(0.5, -500, 0.5, -310),
+TweenService:Create(Win, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+    Size                   = UDim2.new(0.70,0,0.75,0),
+    Position               = UDim2.new(0.15,0,0.125,0),
+    BackgroundTransparency = 0,
 }):Play()
 
-print("[Quantum Onyx] GUI Loaded!")
+print("🐍 Medusa Hub v2.0 loaded — "..player.Name)
